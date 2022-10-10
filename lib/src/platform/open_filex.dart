@@ -58,4 +58,8 @@ class OpenFilex {
     final resultMap = json.decode(_result) as Map<String, dynamic>;
     return OpenResult.fromJson(resultMap);
   }
+
+  static Future<void> close() async {
+    await _channel.invokeMethod('close_viewer');
+  }
 }

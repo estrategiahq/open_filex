@@ -1,7 +1,6 @@
 name: open_filex
 description: A plug-in that can call native APP to open files with string result in flutter, support iOS(UTI) / android(intent) / PC(ffi) / web(dart:html)
-version: 3.4.0
-author: javaherisaber <m.javaherisaber@gmail.com>
+version: 3.4.1
 homepage: https://github.com/javaherisaber/open_file
 
 dependencies:
