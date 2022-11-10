@@ -84,6 +84,10 @@ public class OpenFilePlugin implements MethodCallHandler
         return ContextCompat.checkSelfPermission(activity, permission) == PermissionChecker.PERMISSION_GRANTED;
     }
 
+    private void requestPermission(String permission) {
+        ActivityCompat.requestPermissions(activity, new String[]{permission}, REQUEST_CODE);
+    }
+
     @Override
     @SuppressLint("NewApi")
     public void onMethodCall(MethodCall call, @NonNull Result result) {
@@ -101,29 +105,37 @@ public class OpenFilePlugin implements MethodCallHandler
                     if(!isFileAvailable()){
                         return;
                     }
-                    if (!isMediaStorePath()&&!Environment.isExternalStorageManager()) {
+                    if (!isMediaStorePath() && !Environment.isExternalStorageManager()) {
                         result(-3, "Permission denied: android.Manifest.permission.MANAGE_EXTERNAL_STORAGE");
                         return;
                     }
                 }
-                if (hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) {
-                    if (TYPE_STRING_APK.equals(typeString)) {
-                        openApkFile();
-                        return;
-                    }
+                if (canStartActivityWithPermission()) {
                     startActivity();
-                } else {
-                    ActivityCompat.requestPermissions(activity, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_CODE);
+                } else if (Build.VERSION.SDK_INT < 33) {
+                    requestPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
+                } else if (typeString.startsWith("image")) {
+                    requestPermission(Manifest.permission.READ_MEDIA_IMAGES);
+                } else if (typeString.startsWith("video")) {
+                    requestPermission(Manifest.permission.READ_MEDIA_VIDEO);
+                } else if (typeString.startsWith("audio")) {
+                    requestPermission(Manifest.permission.READ_MEDIA_AUDIO);
                 }
             } else {
                 startActivity();
             }
-        } else if (call.method.equals("close_viewer")) {
-            // Do nothing as android will always open on a native app
-        }else {
+        } else {
             result.notImplemented();
             isResultSubmitted = true;
         }
+    }
+
+    private boolean canStartActivityWithPermission() {
+        return (Build.VERSION.SDK_INT < 33 && hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)) ||
+                (Build.VERSION.SDK_INT >= 33 && typeString.startsWith("image") && hasPermission(Manifest.permission.READ_MEDIA_IMAGES)) ||
+                (Build.VERSION.SDK_INT >= 33 && typeString.startsWith("video") && hasPermission(Manifest.permission.READ_MEDIA_VIDEO)) ||
+                (Build.VERSION.SDK_INT >= 33 && typeString.startsWith("audio") && hasPermission(Manifest.permission.READ_MEDIA_AUDIO)) ||
+                (Build.VERSION.SDK_INT >= 33 && !(typeString.startsWith("image") || typeString.startsWith("video") || typeString.startsWith("audio")));
     }
 
     private boolean isMediaStorePath(){
@@ -155,7 +167,8 @@ public class OpenFilePlugin implements MethodCallHandler
         try {
             String appDirCanonicalPath = new File(context.getApplicationInfo().dataDir).getCanonicalPath();
             String fileCanonicalPath = new File(filePath).getCanonicalPath();
-            return !fileCanonicalPath.startsWith(appDirCanonicalPath);
+            String extCanonicalPath = context.getExternalFilesDir(null).getCanonicalPath();
+            return !(fileCanonicalPath.startsWith(appDirCanonicalPath) || fileCanonicalPath.startsWith(extCanonicalPath));
         } catch (IOException e) {
             e.printStackTrace();
             return true;
@@ -353,46 +366,9 @@ public class OpenFilePlugin implements MethodCallHandler
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private void openApkFile() {
-        if (!canInstallApk()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startInstallPermissionSettingActivity();
-            } else {
-                ActivityCompat.requestPermissions(activity,
-                        new String[]{Manifest.permission.REQUEST_INSTALL_PACKAGES}, REQUEST_CODE);
-            }
-        } else {
-            startActivity();
-        }
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    private boolean canInstallApk() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            return activity.getPackageManager().canRequestPackageInstalls();
-        }
-        return hasPermission(Manifest.permission.REQUEST_INSTALL_PACKAGES);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    private void startInstallPermissionSettingActivity() {
-        if (activity == null) {
-            return;
-        }
-        Uri packageURI = Uri.parse("package:" + activity.getPackageName());
-        Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, packageURI);
-        activity.startActivityForResult(intent, RESULT_CODE);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     public boolean onRequestPermissionsResult(int requestCode, String[] strings, int[] grantResults) {
         if (requestCode != REQUEST_CODE) return false;
-        if (hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-                && TYPE_STRING_APK.equals(typeString)) {
-            openApkFile();
-            return false;
-        }
         for (String string : strings) {
             if (!hasPermission(string)) {
                 result(-3, "Permission denied: " + string);
@@ -407,11 +383,7 @@ public class OpenFilePlugin implements MethodCallHandler
     @Override
     public boolean onActivityResult(int requestCode, int resultCode, Intent intent) {
         if (requestCode == RESULT_CODE) {
-            if (canInstallApk()) {
-                startActivity();
-            } else {
-                result(-3, "Permission denied: " + Manifest.permission.REQUEST_INSTALL_PACKAGES);
-            }
+            startActivity();
         }
         return false;
     }
@@ -465,6 +437,11 @@ public class OpenFilePlugin implements MethodCallHandler
 
     @Override
     public void onDetachedFromActivity() {
-
+        if (channel == null) {
+            return;
+        }
+        channel.setMethodCallHandler(null);
+        channel = null;
+        activity = null;
     }
 }
