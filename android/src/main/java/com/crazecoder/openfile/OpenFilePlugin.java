@@ -124,6 +124,8 @@ public class OpenFilePlugin implements MethodCallHandler
             } else {
                 startActivity();
             }
+        } else if (call.method.equals("close_viewer")) {
+            // Do nothing as android will always open on a native app
         } else {
             result.notImplemented();
             isResultSubmitted = true;
