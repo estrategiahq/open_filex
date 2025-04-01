@@ -1,14 +1,17 @@
-# open_file
+# open_filex
 
 A plug-in that can open files for android
 
 ## Usage
 
-To use this plugin, add [open_file](https://pub.dartlang.org/packages/open_file#-installing-tab-)as a dependency in your pubspec.yaml file.
+To use this plugin, add [open_filex](https://pub.dev/packages/open_filex/install) as a dependency in your pubspec.yaml file.
+
+## How to test this example in emulator
+Add a .png file to /Download folder and run the example project
 
 ## Example
 ```
-import 'package:open_file/open_file.dart';
+import 'package:open_filex/open_filex.dart';
 
 OpenFilex.open("/sdcard/text.txt");
 ```
