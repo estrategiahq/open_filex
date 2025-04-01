@@ -3,58 +3,140 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(const MyApp());
 
 class MyApp extends StatefulWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
-  _MyAppState createState() => _MyAppState();
+  MyAppState createState() => MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class MyAppState extends State<MyApp> {
   var _openResult = 'Unknown';
 
-  Future<String> download(String url, String filename) async {
-    HttpClient httpClient = new HttpClient();
-    
-    var request = await httpClient.getUrl(Uri.parse(url));
-    var response = await request.close();
-    if (response.statusCode == 200) {
-      var bytes = await consolidateHttpClientResponseBytes(response);
-      String dir = (await getApplicationDocumentsDirectory()).path;
-      File file;
-      file = File("$dir/$filename");
-      await file.writeAsBytes(bytes);
-      return file.absolute.path;
+  Future<void> openFile() async {
+    if (Platform.isLinux) {
+      _openLinuxFile();
+    } else if (Platform.isAndroid) {
+      _openAndroidExternalImage();
+    } else if (Platform.isWindows) {
+      _openWindowsFile();
+    } else if (Platform.isMacOS) {
+      _openMacOsFile();
     }
-    throw Exception("Error downloading file");
   }
 
-  Future<void> openFile() async {
-    final filePath = await download('https://www.africau.edu/images/default/sample.pdf', 'sample.pdf');
+  _openMacOsFile() async {
+    final result = await OpenFilex.open("/Downloads/flutter.png");
+    setState(() {
+      _openResult = "type=${result.type}  message=${result.message}";
+    });
+  }
 
-    OpenFilex.open(filePath);
+  _openWindowsFile() async {
+    final result = await OpenFilex.open("C:/Users/Lion/Downloads/flutter.png");
+    setState(() {
+      _openResult = "type=${result.type}  message=${result.message}";
+    });
+  }
+
+  _openLinuxFile() async {
+    final result = await OpenFilex.open("/home/mehdi/Downloads/flutter.jpg");
+    setState(() {
+      _openResult = "type=${result.type}  message=${result.message}";
+    });
+  }
+
+  // ignore: unused_element
+  _openIOSFile() async {
+    final result = await OpenFilex.open("some path in your iOS device");
+    setState(() {
+      _openResult = "type=${result.type}  message=${result.message}";
+    });
+  }
+
+  // ignore: unused_element
+  _openAndroidPrivateFile() async {
+    //open an app private storage file
+    final result = await OpenFilex.open("/data/data/YOUR_PACKAGE_NAME/cache/IMG20230610192318.jpg");
+    setState(() {
+      _openResult = "type=${result.type}  message=${result.message}";
+    });
+  }
+
+  // ignore: unused_element
+  _openAndroidOtherAppFile() async {
+    //open an external storage image file on android 13
+    if (await Permission.manageExternalStorage.request().isGranted) {
+      final result = await OpenFilex.open("/data/user/0/xxx/images/1.jpg");
+      setState(() {
+        _openResult = "type=${result.type}  message=${result.message}";
+      });
+    }
+  }
+
+  // ignore: unused_element
+  _openAndroidExternalImage() async {
+    //open an external storage image file on android 13
+    if (await Permission.photos.request().isGranted) {
+      final result = await OpenFilex.open("/sdcard/Download/flutter.png");
+      setState(() {
+        _openResult = "type=${result.type}  message=${result.message}";
+      });
+    }
+  }
+
+  // ignore: unused_element
+  _openAndroidExternalVideo() async {
+    //open an external storage video file on android 13
+    if (await Permission.videos.request().isGranted) {
+      final result = await OpenFilex.open("/sdcard/Download/R-C.mp4");
+      setState(() {
+        _openResult = "type=${result.type}  message=${result.message}";
+      });
+    }
+  }
+
+  // ignore: unused_element
+  _openAndroidExternalAudio() async {
+    //open an external storage audio file on android 13
+    if (await Permission.audio.request().isGranted) {
+      final result = await OpenFilex.open("/sdcard/Download/R-C.mp3");
+      setState(() {
+        _openResult = "type=${result.type}  message=${result.message}";
+      });
+    }
+  }
+
+  // ignore: unused_element
+  _openAndroidExternalFile() async {
+    //open an external storage file
+    if (await Permission.manageExternalStorage.request().isGranted) {
+      final result = await OpenFilex.open("/sdcard/Android/data/R-C.xml");
+      setState(() {
+        _openResult = "type=${result.type}  message=${result.message}";
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
+        appBar: AppBar(title: const Text('Plugin example app')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               Text('open result: $_openResult\n'),
-              TextButton(
-                child: Text('Tap to open file'),
-                onPressed: openFile,
-              ),
+              TextButton(onPressed: openFile, child: const Text('Tap to open file')),
             ],
           ),
         ),
